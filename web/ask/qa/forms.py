@@ -1,104 +1,80 @@
+# -*- coding: utf-8 -*-
+from django.forms import ModelForm
 from django import forms
-from django.contrib.auth import authenticate, login
+
+from .models import Question, Answer
 from django.contrib.auth.models import User
-from django.contrib.auth.hashers import make_password
 
-from qa.models import Question, Answer
+# AskForm - форма добавления вопроса
+# title - поле заголовка
+# text - поле текста вопроса
+class AskForm(ModelForm):
+	class Meta:
+		model = Question
+		fields = ['title', 'text']
 
-
-class AskForm(forms.Form):
-    title = forms.CharField(max_length=100)
-    text = forms.CharField(widget=forms.Textarea)
-
-    def clean(self):
-        pass
-
-    def save(self):
-        question = Question(**self.cleaned_data)
-        question.author_id = self._user.id
-        question.save()
-        return question
+	def clean(self):
+		return super(AskForm, self).clean()
 
 
-class AnswerForm(forms.Form):
-    text = forms.CharField(widget=forms.Textarea)
-    question = forms.IntegerField(widget=forms.HiddenInput)
+	def save(self):
+		question = Question(**self.cleaned_data)
+		question.author = self.instance.author
 
-    def clean_question(self):
-        question_id = self.cleaned_data['question']
-        try:
-            question = Question.objects.get(id=question_id)
-        except Question.DoesNotExist:
-            question = None
-        return question
-
-    def clean(self):
-        pass
-
-    def save(self):
-        answer = Answer(**self.cleaned_data)
-        answer.author_id = self._user.id
-        answer.save()
-        return answer
+		question.save()
+		return question
 
 
-class SignupForm(forms.Form):
-    username = forms.CharField(max_length=100, required=False)
-    email = forms.EmailField(required=False)
-    password = forms.CharField(widget=forms.PasswordInput, required=False)
+# AnswerForm - форма добавления ответа
+# text - поле текста ответа
+# question - поле для связи с вопросом
+class AnswerForm(ModelForm):
+	class Meta:
+		model = Answer
+		fields = ['text', 'question']
+		widgets = {'question': forms.HiddenInput()}
 
-    def clean_username(self):
-        username = self.cleaned_data.get('username')
-        if not username:
-            raise forms.ValidationError('Не задано имя пользователя')
-        try:
-            User.objects.get(username=username)
-            raise forms.ValidationError('Такой пользователь уже существует')
-        except User.DoesNotExist:
-            pass
-        return username
-
-    def clean_email(self):
-        email = self.cleaned_data.get('email')
-        if not email:
-            raise forms.ValidationError('Не указан адрес электронной почты')
-        return email
-
-    def clean_password(self):
-        password = self.cleaned_data.get('password')
-        if not password:
-            raise forms.ValidationError('Не указан пароль')
-        self.raw_passeord = password
-        return make_password(password)
-
-    def save(self):
-        user = User(**self.cleaned_data)
-        user.save()
-        return user
+	def clean(self):
+		return super(AnswerForm, self).clean()
 
 
+	def save(self):
+		answer = Answer(**self.cleaned_data)
+		answer.author = self.instance.author
+
+		answer.save()
+		return answer
+
+# username - имя пользователя, логин
+# email - email пользователя
+# password - пароль пользователя
+class NewUserForm(ModelForm):
+	class Meta:
+		model = User
+		fields = ['username', 'email', 'password']
+		widgets = { 'password': forms.PasswordInput(),}
+
+	def clean(self):
+		return super(NewUserForm, self).clean()
+
+	def save(self):
+		user = User.objects.create_user(**self.cleaned_data)
+
+		user.save()
+		return user
+
+# username - имя пользователя, логин
+# password - пароль пользователя
 class LoginForm(forms.Form):
-    username = forms.CharField( max_length=100, required=False)
-    password = forms.CharField(widget=forms.PasswordInput, required=False)
+	username = forms.CharField()
+	password = forms.CharField(widget=forms.PasswordInput())
+	# class Meta:
+	# 	model = User
+	# 	fields = ['username', 'password']
+	# 	widgets = { 'password': forms.PasswordInput(),}
 
-    def clean_username(self):
-        username = self.cleaned_data.get('username')
-        if not username:
-            raise forms.ValidationError('Не задано имя пользователя')
-        return username
+	def clean(self):
+		return super(LoginForm, self).clean()
 
-    def clean_password(self):
-        password = self.cleaned_data.get('password')
-        if not password:
-            raise forms.ValidationError('Не указан пароль')
-        return password
-
-    def clean(self):
-        username = self.cleaned_data.get('username')
-        password = self.cleaned_data.get('password')
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            raise forms.ValidationError('Неверное имя пользователя или пароль1')
-        if not user.check_password(password):
-            raise forms.ValidationError('Неверное имя пользователя или пароль2')
+	def save(self):
+		pass
